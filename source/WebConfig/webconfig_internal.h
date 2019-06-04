@@ -14,7 +14,11 @@
 #include <stdint.h>
 #include <wdmp-c.h>
 #include <cimplog.h>
-
+#include <unistd.h>
+#include <sys/time.h>
+#include <errno.h>
+#include "cosa_webconfig_apis.h"
+#include "plugin_main_apis.h"
 
 #if defined(_COSA_BCM_MIPS_)
 #define DEVICE_MAC                   "Device.DPoE.Mac_address"
@@ -29,5 +33,11 @@
 #define SERIAL_NUMBER 		     "Device.DeviceInfo.SerialNumber"
 #define FIRMWARE_VERSION       	     "Device.DeviceInfo.X_CISCO_COM_FirmwareName"
 #define DEVICE_BOOT_TIME             "Device.DeviceInfo.X_RDKCENTRAL-COM_BootTime"
+
+/*----------------------------------------------------------------------------*/
+/*                             External Functions                             */
+/*----------------------------------------------------------------------------*/
+pthread_cond_t *get_global_periodicsync_condition(void);
+pthread_mutex_t *get_global_periodicsync_mutex(void);
 
 #endif /* _WEBCONFIG_INTERNAL_H_ */

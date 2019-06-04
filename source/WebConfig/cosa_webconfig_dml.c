@@ -77,7 +77,7 @@ X_RDK_WebConfig_SetParamBoolValue
 		{
 			sprintf(buf, "%s", "false");	 
 		}  
-
+#ifdef RDKB_BUILD
 		if(syscfg_set(NULL, "WebConfigRfcEnabled", buf) != 0)
 		{
 			WebConfigLog("syscfg_set failed\n");
@@ -93,11 +93,17 @@ X_RDK_WebConfig_SetParamBoolValue
 				pMyObject->RfcEnable = bValue;
 			}
 		}
-
+#endif
 		return TRUE;
 	}
 	WebConfigLog("------- %s ----- EXIT ----\n",__FUNCTION__);
 	return FALSE;
+}
+
+BOOL Get_RfcEnable()
+{
+       PCOSA_DATAMODEL_WEBCONFIG            pMyObject           = (PCOSA_DATAMODEL_WEBCONFIG)g_pCosaBEManager->hWebConfig;
+        return pMyObject->RfcEnable;
 }
 
 BOOL
@@ -110,11 +116,17 @@ X_RDK_WebConfig_GetParamUlongValue
 {
     PCOSA_DATAMODEL_WEBCONFIG            pMyObject           = (PCOSA_DATAMODEL_WEBCONFIG)g_pCosaBEManager->hWebConfig;
 	WebConfigLog("------- %s ----- ENTER ----\n",__FUNCTION__);
+        RFC_ENABLE=Get_RfcEnable();
+        if(!RFC_ENABLE)
+        {
+                WalInfo("------- %s ----- RfcEnable is disabled so, %s Get from DB failed\n",__FUNCTION__,ParamName);
+                return FALSE;
+        }
     /* check the parameter name and return the corresponding value */
     if( AnscEqualString(ParamName, "ConfigFileNumberOfEntries", TRUE))
     {
         /* collect value */
-        *puLong = pMyObject->pConfigFileContainer->ConfigFileEntryCount;
+        *puLong = AnscSListQueryDepth( &pMyObject->ConfigFileList );
         return TRUE;
     }
 	WebConfigLog("------- %s ----- EXIT ----\n",__FUNCTION__);
@@ -131,6 +143,12 @@ X_RDK_WebConfig_GetParamIntValue
 {
     PCOSA_DATAMODEL_WEBCONFIG            pMyObject           = (PCOSA_DATAMODEL_WEBCONFIG)g_pCosaBEManager->hWebConfig;
 	WebConfigLog("------- %s ----- ENTER ----\n",__FUNCTION__);
+	RFC_ENABLE=Get_RfcEnable();
+        if(!RFC_ENABLE)
+        {
+                WalInfo("------- %s ----- RfcEnable is disabled so, %s Get from DB failed\n",__FUNCTION__,ParamName);
+                return FALSE;
+        }
     /* check the parameter name and return the corresponding value */
     if( AnscEqualString(ParamName, "PeriodicSyncCheckInterval", TRUE))
     {
@@ -140,6 +158,13 @@ X_RDK_WebConfig_GetParamIntValue
 	WebConfigLog("------- %s ----- EXIT ----\n",__FUNCTION__);
     /* CcspTraceWarning(("Unsupported parameter '%s'\n", ParamName)); */
     return FALSE;
+}
+
+int Get_PeriodicSyncCheckInterval()
+{
+       PCOSA_DATAMODEL_WEBCONFIG            pMyObject           = (PCOSA_DATAMODEL_WEBCONFIG)g_pCosaBEManager->hWebConfig;
+
+        return pMyObject->PeriodicSyncCheckInterval; 
 }
 
 BOOL
@@ -153,10 +178,17 @@ X_RDK_WebConfig_SetParamIntValue
 	PCOSA_DATAMODEL_WEBCONFIG            pMyObject           = (PCOSA_DATAMODEL_WEBCONFIG)g_pCosaBEManager->hWebConfig;
 	char buf[16]={0};
 	WebConfigLog("------- %s ----- ENTER ----\n",__FUNCTION__);
+        RFC_ENABLE=Get_RfcEnable();
+        if(!RFC_ENABLE)
+        {
+                WalInfo("------- %s ----- RfcEnable is disabled so, %s Set failed\n",__FUNCTION__,ParamName);
+                return FALSE;
+        }
 	/* check the parameter name and set the corresponding value */
 	if( AnscEqualString(ParamName, "PeriodicSyncCheckInterval", TRUE))
 	{
 		sprintf(buf, "%d", iValue);
+#ifdef RDKB_BUILD
 		if(syscfg_set( NULL, "PeriodicSyncCheckInterval", buf) != 0)
 		{
 			WebConfigLog("syscfg_set failed\n");
@@ -170,8 +202,13 @@ X_RDK_WebConfig_SetParamIntValue
 			else
 			{
 				pMyObject->PeriodicSyncCheckInterval = iValue;
+		             /* sending signal to WebConfigTask to update the sync time interval*/
+		               pthread_mutex_lock (get_global_periodicsync_mutex());
+		               pthread_cond_signal(get_global_periodicsync_condition());
+		               pthread_mutex_unlock(get_global_periodicsync_mutex());
 			}
 		}
+#endif
 		return TRUE;
 	}
 	WebConfigLog("------- %s ----- EXIT ----\n",__FUNCTION__);
@@ -191,8 +228,8 @@ X_RDK_WebConfig_SetParamIntValue
     *  ConfigFile_AddEntry
     *  ConfigFile_DelEntry
     *  ConfigFile_GetParamBoolValue
-    *  ConfigFile_SetParamBoolValue
     *  ConfigFile_GetParamStringValue
+    *  ConfigFile_SetParamBoolValue
     *  ConfigFile_SetParamStringValue
     *  ConfigFile_Validate
     *  ConfigFile_Commit
@@ -244,8 +281,21 @@ ConfigFile_IsUpdated
 {
     PCOSA_DATAMODEL_WEBCONFIG             pWebConfig    = (PCOSA_DATAMODEL_WEBCONFIG)g_pCosaBEManager->hWebConfig;
     BOOL                            bIsUpdated   = TRUE;
-	WebConfigLog("------- %s ----- ENTER ----\n",__FUNCTION__);
-	WebConfigLog("------- %s ----- EXIT ----\n",__FUNCTION__);
+    WebConfigLog("-------- %s ----- Enter ------\n",__FUNCTION__);
+    /*
+        We can use one rough granularity interval to get whole table in case
+        that the updating is too frequent.
+        */
+    if ( ( AnscGetTickInSeconds() - pWebConfig->PreviousVisitTime ) < COSA_DML_CONFIGFILE_ACCESS_INTERVAL )
+    {
+        bIsUpdated  = FALSE;
+    }
+    else
+    {
+        pWebConfig->PreviousVisitTime =  AnscGetTickInSeconds();
+        bIsUpdated  = TRUE;
+    }
+    WebConfigLog("-------- %s ----- EXIT ------\n",__FUNCTION__);
     return bIsUpdated;
 }
 
@@ -278,6 +328,12 @@ ConfigFile_AddEntry
     PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry = NULL;
     PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT   pWebConfigCxtLink  = NULL;
     WebConfigLog("------- %s ----- ENTER ----\n",__FUNCTION__);
+    RFC_ENABLE=Get_RfcEnable();
+    if(!RFC_ENABLE)
+    {
+        WalInfo("%s RfcEnable is disabled so, ConfigFile_AddEntry failed\n",__FUNCTION__);
+        return NULL;
+    }
 
     pConfigFileEntry = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)AnscAllocateMemory(sizeof(COSA_DML_WEBCONFIG_CONFIGFILE_ENTRY));
     if ( !pConfigFileEntry )
@@ -301,9 +357,14 @@ ConfigFile_AddEntry
 	pWebConfigCxtLink->hContext = (ANSC_HANDLE)pConfigFileEntry;
 	pWebConfig->pConfigFileContainer->ConfigFileEntryCount++;
     *pInsNumber = pWebConfigCxtLink->InstanceNumber;
-
+    WebConfigLog("*pInsNumber: %d\n",*pInsNumber);
 	CosaSListPushEntryByInsNum(&pWebConfig->ConfigFileList, (PCOSA_CONTEXT_LINK_OBJECT)pWebConfigCxtLink);
-	WebConfigLog("------- %s ----- EXIT ----\n",__FUNCTION__);
+	int configCount = AnscSListQueryDepth( &pWebConfig->ConfigFileList );
+	WebConfigLog("configCount: %d\n",configCount);
+	updateConfigFileNumberOfEntries(configCount);
+	updateConfigFileIndexsList(*pInsNumber);
+	updateConfigFileNextInstanceNumber(pWebConfig->ulWebConfigNextInstanceNumber);
+	WebConfigLog("-------- %s ----- Exit ------\n",__FUNCTION__);
 
     return (ANSC_HANDLE)pWebConfigCxtLink;
 
@@ -327,10 +388,16 @@ ConfigFile_DelEntry
     PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT   pWebConfigCxtLink   = (PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT)hInstance;
     PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry      = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pWebConfigCxtLink->hContext;
     WebConfigLog(" %s : ENTER \n", __FUNCTION__ );
+    RFC_ENABLE=Get_RfcEnable();
+    if(!RFC_ENABLE)
+    {
+        WalInfo("%s RfcEnable is disabled so, ConfigFile_DelEntry failed\n",__FUNCTION__);
+        return ANSC_STATUS_FAILURE;
+    }
 	/* Remove entery from the database */
 
-    //TODO;
-
+    CosaDmlRemoveConfigFileEntry(pConfigFileEntry->InstanceNumber);
+    WebConfigLog("After CosaDmlRemoveConfigFileEntry\n");
     if ( returnStatus == ANSC_STATUS_SUCCESS )
 	{
 			/* Remove entery from the Queue */
@@ -345,7 +412,10 @@ ConfigFile_DelEntry
 			return ANSC_STATUS_FAILURE;
 		}
 	}
-    WebConfigLog(" %s : EXIT \n", __FUNCTION__ );
+	int configCount = AnscSListQueryDepth( &pWebConfig->ConfigFileList );
+	WebConfigLog("configCount: %d\n",configCount);
+	updateConfigFileNumberOfEntries(configCount);
+    WebConfigLog("-------- %s ----- Exit ------\n",__FUNCTION__);
     return returnStatus;
 }
 
@@ -391,6 +461,12 @@ ConfigFile_GetParamBoolValue
     PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT   pWebConfigCxtLink     = (PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT)hInsContext;
     PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pWebConfigCxtLink->hContext;
     WebConfigLog("------- %s ----- ENTER ----\n",__FUNCTION__);
+    RFC_ENABLE=Get_RfcEnable();
+    if(!RFC_ENABLE)
+    {
+         WalInfo("%s RfcEnable is disabled so, %s GET from DB failed\n",__FUNCTION__,ParamName);
+         return FALSE;
+    }
     if( AnscEqualString(ParamName, "ForceSyncCheck", TRUE))
     {
         /* all read must return FALSE */
@@ -423,6 +499,12 @@ ConfigFile_GetParamStringValue
     PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pWebConfigCxtLink->hContext;
     PUCHAR                                    pString       = NULL;
     WebConfigLog(" %s : ENTER \n", __FUNCTION__ );
+    RFC_ENABLE=Get_RfcEnable();
+    if(!RFC_ENABLE)
+    {
+        WalInfo("%s RfcEnable is disabled so, %s GET from DB failed\n",__FUNCTION__,ParamName);
+        return -1;
+    }
 
     if( AnscEqualString(ParamName, "URL", TRUE))
     {
@@ -485,6 +567,12 @@ ConfigFile_SetParamBoolValue
 	PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT   pWebConfigCxtLink     = (PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT)hInsContext;
 	PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pWebConfigCxtLink->hContext;
 	WebConfigLog("------- %s ----- ENTER ----\n",__FUNCTION__);
+        RFC_ENABLE=Get_RfcEnable();
+        if(!RFC_ENABLE)
+        {
+              WalInfo("%s RfcEnable is disabled so, %s SET failed\n",__FUNCTION__,ParamName);
+              return FALSE;
+        }
 	/* check the parameter name and set the corresponding value */
 	if( AnscEqualString(ParamName, "SyncCheckOK", TRUE))
 	{
@@ -513,6 +601,12 @@ ConfigFile_SetParamStringValue
     PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pWebConfigCxtLink->hContext;
     BOOL ret = FALSE;
     WebConfigLog(" %s : ENTER \n", __FUNCTION__ );
+    RFC_ENABLE=Get_RfcEnable();
+    if(!RFC_ENABLE)
+    {
+           WalInfo("%s RfcEnable is disabled so, %s SET failed\n",__FUNCTION__,ParamName);
+           return FALSE;
+     }
     if( AnscEqualString(ParamName, "URL", TRUE))
     {
 	/* save update to backup */
@@ -536,6 +630,19 @@ ConfigFile_SetParamStringValue
     return ret;
 }
 
+BOOL isValidUrl
+    (
+        PCHAR                       pUrl
+    )
+{
+	if(strstr(pUrl, "http") == NULL)
+	{
+		WalError("Invalid URL\n");
+		return FALSE;
+	}
+	return TRUE;
+}
+
 BOOL
 ConfigFile_Validate
     (
@@ -548,9 +655,20 @@ ConfigFile_Validate
     PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT   pWebConfigCxtLink     = (PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT)hInsContext;
     PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pWebConfigCxtLink->hContext;
     WebConfigLog(" %s : ENTER \n", __FUNCTION__ );
+    RFC_ENABLE=Get_RfcEnable();
+    if(!RFC_ENABLE)
+    {
+           WalInfo("%s RfcEnable is disabled so, ConfigFile_Validate failed\n",__FUNCTION__);
+           return FALSE;
+     }
 
     BOOL ret = FALSE;
-    //TODO
+    ret = (isValidUrl(pConfigFileEntry->URL) == TRUE) ? TRUE : FALSE;
+	if(ret == FALSE)
+	{
+		AnscCopyString(pReturnParamName, "URL is Invalid");
+		AnscCopyString(pConfigFileEntry->URL, "");
+	}
     WebConfigLog(" %s : EXIT \n", __FUNCTION__ );
 
     return ret;
@@ -566,7 +684,13 @@ ConfigFile_Commit
     PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT   pWebConfigCxtLink     = (PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT)hInsContext;
     PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pWebConfigCxtLink->hContext;
     WebConfigLog(" %s : ENTER \n", __FUNCTION__ );
-    //TODO
+    RFC_ENABLE=Get_RfcEnable();
+    if(!RFC_ENABLE)
+    {
+           WalInfo("%s RfcEnable is disabled so, ConfigFile_Commit failed\n",__FUNCTION__);
+           return -1;
+     }    
+    CosaDmlSetConfigFileEntry(pConfigFileEntry);
     WebConfigLog(" %s : EXIT \n", __FUNCTION__ );
 }
 
@@ -581,6 +705,12 @@ ConfigFile_Rollback
     PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pWebConfigCxtLink->hContext;
 
     WebConfigLog(" %s : ENTER \n", __FUNCTION__ );
+    RFC_ENABLE=Get_RfcEnable();
+    if(!RFC_ENABLE)
+    {
+           WalInfo("%s RfcEnable is disabled so, ConfigFile_Rollback failed\n",__FUNCTION__);
+           return -1;
+     }
     //TODO
     WebConfigLog(" %s : EXIT \n", __FUNCTION__ );
 }
