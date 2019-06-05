@@ -93,7 +93,7 @@ BOOL getConfigURL(int index,char **configURL)
                                 return FALSE;
                 }
         }
-        *configURL = pConfigFileEntry->URL;
+        *configURL = strdup(pConfigFileEntry->URL);
         return TRUE;
 }
 
@@ -204,6 +204,7 @@ BOOL getConfigVersion(int index, char **version)
 	    WalInfo("InstNum: %d\n",getInstanceNumberAtIndex(i));
 		if(getInstanceNumberAtIndex(i) == index)
 		{
+			WalInfo("pConfigFileEntry[i].Version: %s\n",pConfigFileEntry[i].Version);
 			*version = strdup(pConfigFileEntry[i].Version);
 			indexFound = 1;
 			break;
