@@ -74,8 +74,12 @@ BOOL getConfigURL(int index,char **configURL)
         PSINGLE_LINK_ENTRY                    pSListEntry       = NULL;
         PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT    pCxtLink          = NULL;
         PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry    = NULL;
-        int i;
-        for(i=0;i<=pMyObject->pConfigFileContainer->ConfigFileEntryCount;i++)
+        int i, count, indexFound = 0;
+	WalInfo("-------- %s ----- Enter ------\n",__FUNCTION__);
+	count = getConfigNumberOfEntries();
+	WalInfo("count : %d\n",count);
+
+        for(i=0;i<count;i++)
         {
                 pSListEntry       = AnscSListGetEntryByIndex(&pMyObject->ConfigFileList, i);
                 if ( pSListEntry )
@@ -85,15 +89,18 @@ BOOL getConfigURL(int index,char **configURL)
                 pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pCxtLink->hContext;
                 if(pConfigFileEntry->InstanceNumber==index)
                 {
-                        break;
-                }
-                else if(i==pMyObject->pConfigFileContainer->ConfigFileEntryCount && pConfigFileEntry->InstanceNumber!=index)
-                {
-                                WalInfo("----%s---- %d index table not found\n",__FUNCTION__,index);
-                                return FALSE;
+                        *configURL = strdup(pConfigFileEntry->URL);
+			indexFound = 1;
+			break;
                 }
         }
-        *configURL = strdup(pConfigFileEntry->URL);
+	if(indexFound == 0)
+	{
+		WalError("Table with %d index is not available\n", index);
+		return FALSE;
+	}
+        
+	WalInfo("-------- %s ----- Exit ------\n",__FUNCTION__);
         return TRUE;
 }
 
@@ -103,9 +110,13 @@ int setConfigURL(int index, char *configURL)
         PSINGLE_LINK_ENTRY                    pSListEntry       = NULL;
         PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT    pCxtLink          = NULL;
         PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry    = NULL;
-        int i;
-        char ParamName[MAX_BUFF_SIZE] = { 0 };
-        for(i=0;i<=pMyObject->pConfigFileContainer->ConfigFileEntryCount;i++)
+	char ParamName[MAX_BUFF_SIZE] = { 0 };
+        int i, count, indexFound = 0;
+	WalInfo("-------- %s ----- Enter ------\n",__FUNCTION__);
+	count = getConfigNumberOfEntries();
+	WalInfo("count : %d\n",count);
+        
+        for(i=0;i<count;i++)
         {
                 pSListEntry       = AnscSListGetEntryByIndex(&pMyObject->ConfigFileList, i);
                 if ( pSListEntry )
@@ -115,17 +126,19 @@ int setConfigURL(int index, char *configURL)
                 pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pCxtLink->hContext;
                 if(pConfigFileEntry->InstanceNumber==index)
                 {
-                        break;
-                }
-                else if(i==pMyObject->pConfigFileContainer->ConfigFileEntryCount && pConfigFileEntry->InstanceNumber!=index)
-                {
-                                WalInfo("----%s---- %d index table not found\n",__FUNCTION__,index);
-                                return 1;
+                        AnscCopyString(pConfigFileEntry->URL,configURL);
+			snprintf(ParamName,MAX_BUFF_SIZE, "configfile_%d_Url", index);
+			CosaDmlStoreValueIntoDb(ParamName, configURL);
+			indexFound = 1;
+			break;
                 }
         }
-        AnscCopyString(pConfigFileEntry->URL,configURL);
-        snprintf(ParamName,MAX_BUFF_SIZE, "configfile_%d_Url", pConfigFileEntry->InstanceNumber);
-        CosaDmlStoreValueIntoDb(ParamName, pConfigFileEntry->URL);
+        if(indexFound == 0)
+	{
+		WalError("Table with %d index is not available\n", index);
+		return 1;
+	}
+	WalInfo("-------- %s ----- Exit ------\n",__FUNCTION__);
         return 0;
 }
 
@@ -135,8 +148,13 @@ BOOL getPreviousSyncDateTime(int index,char **PreviousSyncDateTime)
         PSINGLE_LINK_ENTRY                    pSListEntry       = NULL;
         PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT    pCxtLink          = NULL;
         PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry    = NULL;
-        int i;
-        for(i=0;i<=pMyObject->pConfigFileContainer->ConfigFileEntryCount;i++)
+
+        int i, count, indexFound = 0;
+	WalInfo("-------- %s ----- Enter ------\n",__FUNCTION__);
+	count = getConfigNumberOfEntries();
+	WalInfo("count : %d\n",count);
+
+        for(i=0;i<count;i++)
         {
                 pSListEntry       = AnscSListGetEntryByIndex(&pMyObject->ConfigFileList, i);
                 if ( pSListEntry )
@@ -146,16 +164,18 @@ BOOL getPreviousSyncDateTime(int index,char **PreviousSyncDateTime)
                 pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pCxtLink->hContext;
                 if(pConfigFileEntry->InstanceNumber==index)
                 {
+			*PreviousSyncDateTime=strdup(pConfigFileEntry->PreviousSyncDateTime);
+			indexFound = 1;
                         break;
                 }
-                else if(i==pMyObject->pConfigFileContainer->ConfigFileEntryCount && pConfigFileEntry->InstanceNumber!=index)
-                {
-                                WalInfo("----%s---- %d index table not found\n",__FUNCTION__,index);
-                                return FALSE;
-                }
         }
-
-        *PreviousSyncDateTime=strdup(pConfigFileEntry->PreviousSyncDateTime);
+	if(indexFound == 0)
+	{
+		WalError("Table with %d index is not available\n", index);
+		return FALSE;
+	}
+	WalInfo("-------- %s ----- Exit ------\n",__FUNCTION__);
+        
         return TRUE;
 
 }
@@ -166,10 +186,14 @@ int setPreviousSyncDateTime(int index)
         PSINGLE_LINK_ENTRY                    pSListEntry       = NULL;
         PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT    pCxtLink          = NULL;
         PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry    = NULL;
-        int i;
         char ParamName[MAX_BUFF_SIZE] = { 0 };
         char current_time[MAX_BUFF_SIZE] = { 0 };
-        for(i=0;i<=pMyObject->pConfigFileContainer->ConfigFileEntryCount;i++)
+	int i, count, indexFound = 0;
+	WalInfo("-------- %s ----- Enter ------\n",__FUNCTION__);
+	count = getConfigNumberOfEntries();
+	WalInfo("count : %d\n",count);
+
+        for(i=0;i<count;i++)
         {
                 pSListEntry       = AnscSListGetEntryByIndex(&pMyObject->ConfigFileList, i);
                 if ( pSListEntry )
@@ -179,22 +203,23 @@ int setPreviousSyncDateTime(int index)
                 pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pCxtLink->hContext;
                 if(pConfigFileEntry->InstanceNumber==index)
                 {
+			time_t curr_time = time(NULL);
+			struct tm *tm = localtime(&curr_time);
+			strftime(current_time, MAX_BUFF_SIZE, "%c", tm);
+			AnscCopyString(pConfigFileEntry->PreviousSyncDateTime,current_time);
+			snprintf(ParamName,MAX_BUFF_SIZE, "configfile_%d_SyncDateTime", pConfigFileEntry->InstanceNumber);
+			CosaDmlStoreValueIntoDb(ParamName, pConfigFileEntry->PreviousSyncDateTime);
+			indexFound = 1;
                         break;
                 }
-                else if(i==pMyObject->pConfigFileContainer->ConfigFileEntryCount && pConfigFileEntry->InstanceNumber!=index)
-                {
-                                WalInfo("----%s---- %d index table not found\n",__FUNCTION__,index);
-                                return 1;
-                }
         }
-        time_t curr_time = time(NULL);
-        struct tm *tm = localtime(&curr_time);
-        strftime(current_time, MAX_BUFF_SIZE, "%c", tm);
-        AnscCopyString(pConfigFileEntry->PreviousSyncDateTime,current_time);
-        snprintf(ParamName,MAX_BUFF_SIZE, "configfile_%d_SyncDateTime", pConfigFileEntry->InstanceNumber);
-        CosaDmlStoreValueIntoDb(ParamName, pConfigFileEntry->PreviousSyncDateTime);
+        if(indexFound == 0)
+	{
+		WalError("Table with %d index is not available\n", index);
+		return 1;
+	}
+	WalInfo("-------- %s ----- Exit ------\n",__FUNCTION__);
         return 0;
-
 }
 
 BOOL getConfigVersion(int index, char **version)
@@ -203,8 +228,13 @@ BOOL getConfigVersion(int index, char **version)
         PSINGLE_LINK_ENTRY                    pSListEntry       = NULL;
         PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT    pCxtLink          = NULL;
         PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry    = NULL;
-        int i;
-        for(i=0;i<=pMyObject->pConfigFileContainer->ConfigFileEntryCount;i++)
+
+        int i, count, indexFound = 0;
+	WalInfo("-------- %s ----- Enter ------\n",__FUNCTION__);
+	count = getConfigNumberOfEntries();
+	WalInfo("count : %d\n",count);
+
+        for(i=0;i<count;i++)
         {
                 pSListEntry       = AnscSListGetEntryByIndex(&pMyObject->ConfigFileList, i);
                 if ( pSListEntry )
@@ -214,16 +244,18 @@ BOOL getConfigVersion(int index, char **version)
                 pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pCxtLink->hContext;
                 if(pConfigFileEntry->InstanceNumber==index)
                 {
+			*version=strdup(pConfigFileEntry->Version);
+			indexFound = 1;
                         break;
                 }
-                else if(i==pMyObject->pConfigFileContainer->ConfigFileEntryCount && pConfigFileEntry->InstanceNumber!=index)
-                {
-                                WalInfo("----%s---- %d index table not found\n",__FUNCTION__,index);
-                                return FALSE;
-                }
         }
-
-        *version=strdup(pConfigFileEntry->Version);
+	if(indexFound == 0)
+	{
+		WalError("Table with %d index is not available\n", index);
+		return FALSE;
+	}
+	WalInfo("-------- %s ----- Exit ------\n",__FUNCTION__);
+        
         return TRUE;
 
 }
@@ -234,9 +266,14 @@ int setConfigVersion(int index, char *version)
         PSINGLE_LINK_ENTRY                    pSListEntry       = NULL;
         PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT    pCxtLink          = NULL;
         PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry    = NULL;
-        int i;
         char ParamName[MAX_BUFF_SIZE] = { 0 };
-        for(i=0;i<=pMyObject->pConfigFileContainer->ConfigFileEntryCount;i++)
+	
+	int i, count, indexFound = 0;
+	WalInfo("-------- %s ----- Enter ------\n",__FUNCTION__);
+	count = getConfigNumberOfEntries();
+	WalInfo("count : %d\n",count);
+
+        for(i=0;i<count;i++)
         {
                 pSListEntry       = AnscSListGetEntryByIndex(&pMyObject->ConfigFileList, i);
                 if ( pSListEntry )
@@ -246,17 +283,19 @@ int setConfigVersion(int index, char *version)
                 pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pCxtLink->hContext;
                 if(pConfigFileEntry->InstanceNumber==index)
                 {
+			AnscCopyString(pConfigFileEntry->Version,version);
+			snprintf(ParamName,MAX_BUFF_SIZE, "configfile_%d_Version", pConfigFileEntry->InstanceNumber);
+			CosaDmlStoreValueIntoDb(ParamName, pConfigFileEntry->Version);
+			indexFound = 1;
                         break;
                 }
-                else if(i==pMyObject->pConfigFileContainer->ConfigFileEntryCount && pConfigFileEntry->InstanceNumber!=index)
-                {
-                                WalInfo("----%s---- %d index table not found\n",__FUNCTION__,index);
-                                return 1;
-                }
         }
-        AnscCopyString(pConfigFileEntry->Version,version);
-        snprintf(ParamName,MAX_BUFF_SIZE, "configfile_%d_Version", pConfigFileEntry->InstanceNumber);
-        CosaDmlStoreValueIntoDb(ParamName, pConfigFileEntry->Version);
+        if(indexFound == 0)
+	{
+		WalError("Table with %d index is not available\n", index);
+		return 1;
+	}
+	WalInfo("-------- %s ----- Exit ------\n",__FUNCTION__);
         return 0;
 
 }
@@ -267,8 +306,12 @@ BOOL getSyncCheckOK(int index)
         PSINGLE_LINK_ENTRY                    pSListEntry       = NULL;
         PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT    pCxtLink          = NULL;
         PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry    = NULL;
-        int i;
-        for(i=0;i<=pMyObject->pConfigFileContainer->ConfigFileEntryCount;i++)
+        int i, count;
+	WalInfo("-------- %s ----- Enter ------\n",__FUNCTION__);
+	count = getConfigNumberOfEntries();
+	WalInfo("count : %d\n",count);
+
+        for(i=0;i<count;i++)
         {
                 pSListEntry       = AnscSListGetEntryByIndex(&pMyObject->ConfigFileList, i);
                 if ( pSListEntry )
@@ -278,16 +321,12 @@ BOOL getSyncCheckOK(int index)
                 pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pCxtLink->hContext;
                 if(pConfigFileEntry->InstanceNumber==index)
                 {
-                        break;
-                }
-                else if(i==pMyObject->pConfigFileContainer->ConfigFileEntryCount && pConfigFileEntry->InstanceNumber!=index)
-                {
-                                WalInfo("----%s---- %d index table not found\n",__FUNCTION__,index);
-                                return FALSE;
+                        return pConfigFileEntry->SyncCheckOK;
                 }
         }
-
-        return pConfigFileEntry->SyncCheckOK;
+	WalError("Table with %d index is not available\n", index);
+	WalInfo("-------- %s ----- Exit ------\n",__FUNCTION__);
+        return FALSE;
 
 }
 
@@ -297,9 +336,13 @@ int setSyncCheckOK(int index, BOOL status)
         PSINGLE_LINK_ENTRY                    pSListEntry       = NULL;
         PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT    pCxtLink          = NULL;
         PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry    = NULL;
-        int i;
+        int i, count, indexFound = 0;
+	WalInfo("-------- %s ----- Enter ------\n",__FUNCTION__);
+	count = getConfigNumberOfEntries();
+	WalInfo("count : %d\n",count);
+
         char ParamName[MAX_BUFF_SIZE] = { 0 };
-        for(i=0;i<=pMyObject->pConfigFileContainer->ConfigFileEntryCount;i++)
+        for(i=0;i<count;i++)
         {
                 pSListEntry       = AnscSListGetEntryByIndex(&pMyObject->ConfigFileList, i);
                 if ( pSListEntry )
@@ -309,26 +352,27 @@ int setSyncCheckOK(int index, BOOL status)
                 pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pCxtLink->hContext;
                 if(pConfigFileEntry->InstanceNumber==index)
                 {
+			pConfigFileEntry->SyncCheckOK=status;
+			snprintf(ParamName,MAX_BUFF_SIZE, "configfile_%d_SyncCheckOk", pConfigFileEntry->InstanceNumber);
+			if(pConfigFileEntry->SyncCheckOK)
+			{
+				CosaDmlStoreValueIntoDb(ParamName, "true");
+			}
+			else
+			{
+				CosaDmlStoreValueIntoDb(ParamName, "false");
+			}
+			indexFound = 1;
                         break;
                 }
-                else if(i==pMyObject->pConfigFileContainer->ConfigFileEntryCount && pConfigFileEntry->InstanceNumber!=index)
-                {
-                                WalInfo("----%s---- %d index table not found\n",__FUNCTION__,index);
-                                return 1;
-                }
         }
-        pConfigFileEntry->SyncCheckOK=status;
-        snprintf(ParamName,MAX_BUFF_SIZE, "configfile_%d_SyncCheckOk", pConfigFileEntry->InstanceNumber);
-        if(pConfigFileEntry->SyncCheckOK)
-        {
-                CosaDmlStoreValueIntoDb(ParamName, "true");
-        }
-        else
-        {
-                CosaDmlStoreValueIntoDb(ParamName, "false");
-        }
-        return 0;
-
+        if(indexFound == 0)
+	{
+		WalError("Table with %d index is not available\n", index);
+		return 1;
+	}
+	WalInfo("-------- %s ----- Exit ------\n",__FUNCTION__);
+	return 0;
 }
 
 BOOL getForceSyncCheck(int index)
@@ -337,8 +381,11 @@ BOOL getForceSyncCheck(int index)
         PSINGLE_LINK_ENTRY                    pSListEntry       = NULL;
         PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT    pCxtLink          = NULL;
         PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry    = NULL;
-        int i;
-        for(i=0;i<=pMyObject->pConfigFileContainer->ConfigFileEntryCount;i++)
+        int i, count;
+	WalInfo("-------- %s ----- Enter ------\n",__FUNCTION__);
+	count = getConfigNumberOfEntries();
+	WalInfo("count : %d\n",count);
+        for(i=0;i<count;i++)
         {
                 pSListEntry       = AnscSListGetEntryByIndex(&pMyObject->ConfigFileList, i);
                 if ( pSListEntry )
@@ -348,9 +395,9 @@ BOOL getForceSyncCheck(int index)
                 pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pCxtLink->hContext;
                 return pConfigFileEntry->ForceSyncCheck;
         }
-
-         WalInfo("--%s-- index table not found\n",__FUNCTION__);
-        return FALSE;
+	WalError("Table with %d index is not available\n", index);
+	WalInfo("-------- %s ----- Exit ------\n",__FUNCTION__);
+	return FALSE;
 }
 
 
