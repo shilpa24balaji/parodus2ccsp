@@ -331,7 +331,7 @@ int setSyncCheckOK(int index, BOOL status)
 
 }
 
-BOOL getForceSyncCheck()
+BOOL getForceSyncCheck(int index)
 {
         PCOSA_DATAMODEL_WEBCONFIG                   pMyObject         = (PCOSA_DATAMODEL_WEBCONFIG)g_pCosaBEManager->hWebConfig;
         PSINGLE_LINK_ENTRY                    pSListEntry       = NULL;
@@ -352,28 +352,6 @@ BOOL getForceSyncCheck()
          WalInfo("--%s-- index table not found\n",__FUNCTION__);
         return FALSE;
 }
-
- void setForceSyncCheck()
-{
-        PCOSA_DATAMODEL_WEBCONFIG                   pMyObject         = (PCOSA_DATAMODEL_WEBCONFIG)g_pCosaBEManager->hWebConfig;
-        PSINGLE_LINK_ENTRY                    pSListEntry       = NULL;
-        PCOSA_CONTEXT_WEBCONFIG_LINK_OBJECT    pCxtLink          = NULL;
-        PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY pConfigFileEntry    = NULL;
-        int i;
-        for(i=0;i<=pMyObject->pConfigFileContainer->ConfigFileEntryCount;i++)
-        {
-                pSListEntry       = AnscSListGetEntryByIndex(&pMyObject->ConfigFileList, i);
-                if ( pSListEntry )
-                {
-                        pCxtLink      = ACCESS_COSA_CONTEXT_WEBCONFIG_LINK_OBJECT(pSListEntry);
-                }
-                pConfigFileEntry  = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)pCxtLink->hContext;
-                pConfigFileEntry->ForceSyncCheck = false;
-        }
-
-         WalInfo("--%s-- index table not found\n",__FUNCTION__);
-}
-
 
 
 void updateParamValStructWIthConfigFileDataAtIndex(parameterValStruct_t **paramVal, int index, int valIndex, int *finalIndex)
