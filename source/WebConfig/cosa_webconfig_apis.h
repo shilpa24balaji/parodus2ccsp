@@ -22,7 +22,7 @@
 #include "webpa_adapter.h"
 
 #define MAX_BUFF_SIZE 256
-
+#define DEVICE_PROPS_FILE          "/etc/device.properties"
 #define  COSA_CONTEXT_WEBCONFIG_LINK_CLASS_CONTENT                                  \
         COSA_CONTEXT_LINK_CLASS_CONTENT                                            \
         BOOL                            bFound;                                    \

@@ -71,7 +71,6 @@
 #include "cosa_webconfig_apis.h"
 #include "webconfig_log.h"
 
-#define DEVICE_PROPS_FILE          "/etc/device.properties"
 static void loadInitURLFromFile(char **url);
 /**********************************************************************
 
@@ -732,7 +731,7 @@ int initializeDefaultConfigURLInDB()
 	if(url !=NULL)
 	{
 		WalInfo("Init url fetched from device.properties file is %s\n", url);
-		configURL = (char *) malloc(sizeof(char)*MAX_BUF_SIZE); //free this.
+		configURL = (char *) malloc(sizeof(char)*MAX_BUFF_SIZE); //free this.
 		AnscCopyString(configURL, url );
 		if(configURL !=NULL)
 		{
