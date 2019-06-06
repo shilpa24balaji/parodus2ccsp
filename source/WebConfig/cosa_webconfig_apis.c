@@ -706,10 +706,19 @@ int initConfigFileWithURL(char *Url, ULONG InstanceNumber)
         pConfigFileEntry = (PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY)AnscAllocateMemory(sizeof(COSA_DML_WEBCONFIG_CONFIGFILE_ENTRY));
         memset(pConfigFileEntry, 0, sizeof(COSA_DML_WEBCONFIG_CONFIGFILE_ENTRY));
 	    pConfigFileEntry->InstanceNumber = InstanceNumber;
-	    AnscCopyString( pConfigFileEntry->URL, Url );
+	    //AnscCopyString( pConfigFileEntry->URL, Url );
         FillEntryInList(pWebConfig, pConfigFileEntry);
 	    int configCount = AnscSListQueryDepth( &pWebConfig->ConfigFileList );
 	    WalInfo("configCount: %d\n",configCount);
+	    int ret = setConfigURL(InstanceNumber, Url);
+	    if(ret)
+	    {
+	        WalInfo("setConfigURL is success\n");
+	    }
+	    else
+	    {
+	        WalInfo("setConfigURL is failed\n");
+	    }
 	    updateConfigFileNumberOfEntries(configCount);
 	    updateConfigFileIndexsList(InstanceNumber);
 	    updateConfigFileNextInstanceNumber(InstanceNumber+1);
