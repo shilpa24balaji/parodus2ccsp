@@ -469,6 +469,7 @@ int requestWebConfigData(char **configData, int r_count, int index, int status, 
 			WalInfo("forming webConfigURL\n");
 			snprintf(webConfigURL, MAX_BUF_SIZE, configURL , deviceMAC);
 			WalInfo("webConfigURL is %s\n", webConfigURL);
+			setConfigURL(1, webConfigURL);
 			//webConfigURL = getParameterValue(URL_param, &paramType);
 			curl_easy_setopt(curl, CURLOPT_URL, webConfigURL );
 			WalInfo("free ing configURL\n");
