@@ -22,7 +22,6 @@
 #define CURL_TIMEOUT_SEC	   25L
 #define CLIENT_CERT_PATH  	   "/etc/clientcert.crt"
 #define CA_CERT_PATH 		   "/etc/ssl/certs/ca-certificates.crt"
-#define DEVICE_PROPS_FILE          "/etc/device.properties"
 #define WEBCFG_INTERFACE_DEFAULT   "erouter0"
 #define MAX_BUF_SIZE	           256
 #define WEB_CFG_FILE		      "/nvram/webConfig.json"
@@ -79,7 +78,7 @@ int handleHttpResponse(long response_code, char *webConfigData, int retry_count,
 static char* generate_trans_uuid();
 static void getDeviceMac();
 static void macToLowerCase(char macValue[]);
-static void loadInitURLFromFile(char **url);
+//static void loadInitURLFromFile(char **url);
 void* processWebConfigNotification(void* pValue);
 void Send_Notification_Task(char *url, long status_code, char *application_status, int application_details, char *previous_sync_time, char *version);
 void free_notify_params_struct(notify_params_t *param);
@@ -404,7 +403,6 @@ int requestWebConfigData(char **configData, int r_count, int index, int status, 
 	data.size = 0;
 	char * configURL = NULL;
 	int ret =0, count = 0;
-	char *url = NULL;
 
 	curl = curl_easy_init();
 	if(curl)
@@ -418,7 +416,7 @@ int requestWebConfigData(char **configData, int r_count, int index, int status, 
 		}
 		data.data[0] = '\0';
 		createCurlheader(list, &headers_list, status, index);
-		if(initURL==0)
+		/*if(initURL==0)
 		{
 			WalInfo("loadInitURLFromFile first case\n");
 			loadInitURLFromFile(&url);
@@ -448,11 +446,11 @@ int requestWebConfigData(char **configData, int r_count, int index, int status, 
 			}
 		}
 		else
-		{
+		{*/
 			WalInfo("getConfigURL second case\n");
 			getConfigURL(1, &configURL); //TODO: local api implementation
 			WalInfo("configURL fetched is %s\n", configURL);
-		}
+		//}
 		webConfigURL = (char *) malloc(sizeof(char)*MAX_BUF_SIZE);
 		if(configURL !=NULL)
 		{
@@ -838,7 +836,7 @@ static void get_webCfg_interface(char **interface)
 	}
 }
 //loadInitURLFromFile
-static void loadInitURLFromFile(char **url)
+/*static void loadInitURLFromFile(char **url)
 {
 	FILE *fp = fopen(DEVICE_PROPS_FILE, "r");
 
@@ -871,7 +869,7 @@ static void loadInitURLFromFile(char **url)
 	{
 		WalInfo("url fetched is %s\n", *url);
 	}
-}
+}*/
 
 /* @brief Function to create curl header options
  * @param[in] list temp curl header list

@@ -252,6 +252,7 @@ static void *WALInit(void *status)
 	if(RfcEnable[0] != '\0' && strncmp(RfcEnable, "true", strlen("true")) == 0)
 	{
 	    WalInfo("WebConfig Rfc is enabled, starting WebConfigTask\n");
+	    initializeDefaultConfigURLInDB();
 	    initWebConfigTask((int)status);
 	}
 	else

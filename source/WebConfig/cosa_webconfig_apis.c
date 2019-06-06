@@ -70,6 +70,9 @@
 #include "plugin_main_apis.h"
 #include "cosa_webconfig_apis.h"
 #include "webconfig_log.h"
+
+#define DEVICE_PROPS_FILE          "/etc/device.properties"
+static void loadInitURLFromFile(char **url);
 /**********************************************************************
 
     caller:     owner of the object
@@ -658,6 +661,42 @@ void updateConfigFileNextInstanceNumber(ULONG index)
 	WalInfo("-------- %s ----- Exit ------\n",__FUNCTION__);
 }
 
+//loadInitURLFromFile
+static void loadInitURLFromFile(char **url)
+{
+	FILE *fp = fopen(DEVICE_PROPS_FILE, "r");
+
+	if (NULL != fp)
+	{
+		char str[255] = {'\0'};
+		while(fscanf(fp,"%s", str) != EOF)
+		{
+		    char *value = NULL;
+
+		    if(NULL != (value = strstr(str, "WEBCONFIG_INIT_URL=")))
+		    {
+			value = value + strlen("WEBCONFIG_INIT_URL=");
+			*url = strdup(value);
+		    }
+
+		}
+		fclose(fp);
+	}
+	else
+	{
+		WalError("Failed to open device.properties file:%s\n", DEVICE_PROPS_FILE);
+	}
+
+	if (NULL == *url)
+	{
+		WalError("WebConfig url is not present in device.properties\n");
+	}
+	else
+	{
+		WalInfo("url fetched is %s\n", *url);
+	}
+}
+
 int initConfigFileWithURL(char *Url, ULONG InstanceNumber)
 {
     WalInfo("-------- %s ----- Enter ------\n",__FUNCTION__);
@@ -681,4 +720,38 @@ int initConfigFileWithURL(char *Url, ULONG InstanceNumber)
 	}
 	WalInfo("-------- %s ----- Exit ------\n",__FUNCTION__);
 	return 1;
+}
+
+int initializeDefaultConfigURLInDB()
+{
+	char * configURL = NULL;
+	int ret =0, count = 0;
+	char *url = NULL;
+
+	loadInitURLFromFile(&url);
+	if(url !=NULL)
+	{
+		WalInfo("Init url fetched from device.properties file is %s\n", url);
+		configURL = (char *) malloc(sizeof(char)*MAX_BUF_SIZE); //free this.
+		AnscCopyString(configURL, url );
+		if(configURL !=NULL)
+		{
+			count = getConfigNumberOfEntries();
+			WalInfo("count = %d\n",count);
+			
+			if(count == 0) 
+			{
+				WalInfo("calling initConfigFileWithURL\n");
+				ret = initConfigFileWithURL(configURL, 1);
+				WalInfo("initConfigFileWithURL done ret %d\n", ret);
+				if(ret == 0)
+				{
+					WalInfo("setConfigURL done\n");
+				}
+				     
+			}
+		}
+		AnscFreeMemory(configURL);
+	}
+	return ret;
 }

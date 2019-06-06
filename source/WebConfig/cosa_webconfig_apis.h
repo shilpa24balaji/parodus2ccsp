@@ -143,3 +143,4 @@ BOOL getSyncCheckOK(int index);
 int setSyncCheckOK(int index, BOOL status);
 
 int initConfigFileWithURL(char *Url, ULONG InstanceNumber);
+int initializeDefaultConfigURLInDB();
