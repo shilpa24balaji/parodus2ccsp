@@ -13,7 +13,7 @@
 #if defined(FEATURE_SUPPORT_WEBCONFIG)
 #include "webconfig_log.h"
 #endif
-
+#include <webcfg_generic.h>
 /*----------------------------------------------------------------------------*/
 /*                            File Scoped Variables                           */
 /*----------------------------------------------------------------------------*/
@@ -255,8 +255,11 @@ static void *WALInit(void *status)
 #endif
 	if(RfcEnable[0] != '\0' && strncmp(RfcEnable, "true", strlen("true")) == 0)
 	{
-	    WebConfigLog("WebConfig Rfc is enabled, starting WebConfigTask\n");
-	    initWebConfigTask((int)status);
+	    //WebConfigLog("WebConfig Rfc is enabled, starting WebConfigTask\n");
+	    //initWebConfigTask((int)status);
+	    WebConfigLog("WebConfig Rfc is enabled, starting WebConfigMultipartTask\n");
+	    initWebConfigMultipartTask();
+	    WebConfigLog("After WebConfigMultipartTask\n");
 	}
 	else
 	{
