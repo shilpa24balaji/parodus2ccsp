@@ -585,12 +585,12 @@ int requestWebConfigData(char **configData, int r_count, int index, int status, 
 
 		// setting curl resolve option as default mode.
 		//If any failure, retry with v4 first and then v6 mode. 
-		if(r_count == 1)
-		{
+		//if(r_count == 1)
+		//{
 			WebConfigLog("curl Ip resolve option set as V4 mode\n");
 			curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-		}
-		else if(r_count == 2)
+		//}
+		/*else if(r_count == 2)
 		{
 			WebConfigLog("curl Ip resolve option set as V6 mode\n");
 			curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
@@ -599,7 +599,7 @@ int requestWebConfigData(char **configData, int r_count, int index, int status, 
 		{
 			WebConfigLog("curl Ip resolve option set as default mode\n");
 			curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
-		}
+		}*/
 		curl_easy_setopt(curl, CURLOPT_CAINFO, CA_CERT_PATH);
 		// disconnect if it is failed to validate server's cert 
 		curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
