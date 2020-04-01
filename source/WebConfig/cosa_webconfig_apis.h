@@ -23,7 +23,7 @@
 
 #define MAX_BUFF_SIZE 256
 
-#define  COSA_CONTEXT_WEBCONFIG_LINK_CLASS_CONTENT                                  \
+//#define  COSA_CONTEXT_WEBCONFIG_LINK_CLASS_CONTENT                                  \
         COSA_CONTEXT_LINK_CLASS_CONTENT                                            \
         BOOL                            bFound;                                    \
 
@@ -40,7 +40,7 @@
 
 #define DEVICE_PROPS_FILE          "/etc/device.properties"
 
-typedef  struct
+/**typedef  struct
 _COSA_CONTEXT_WEBCONFIG_LINK_OBJECT
 {
     COSA_CONTEXT_WEBCONFIG_LINK_CLASS_CONTENT
@@ -67,7 +67,7 @@ _PCOSA_DML_CONFIGFILE_CONTAINER
     PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY    pConfigFileTable;    
 }
 COSA_DML_CONFIGFILE_CONTAINER,  *PCOSA_DML_CONFIGFILE_CONTAINER;
-
+**/
 #define  COSA_DATAMODEL_WEBCONFIG_CLASS_CONTENT                                                  \
     /* duplication of the base object class content */                                      \
     COSA_BASE_CONTENT                                                                       \
@@ -75,11 +75,9 @@ COSA_DML_CONFIGFILE_CONTAINER,  *PCOSA_DML_CONFIGFILE_CONTAINER;
 	ULONG                       ulWebConfigNextInstanceNumber;                                    \
 	ULONG                           PreviousVisitTime;                                      \
     BOOL                        RfcEnable;                                         \
-    int                     PeriodicSyncCheckInterval;                      \
+    char                        URL[256];                                    \
     char 		    ForceSync[256];					\
     char 		    ForceSyncTransID[256];					\
-    SLIST_HEADER                ConfigFileList;                                        \
-    PCOSA_DML_CONFIGFILE_CONTAINER    pConfigFileContainer;                                        \
 	ANSC_HANDLE                     hIrepFolderWebConfig;                                         \
     ANSC_HANDLE                     hIrepFolderWebConfigMapCont;                                       \
 
@@ -91,7 +89,7 @@ _COSA_DATAMODEL_WEBCONFIG
 }
 COSA_DATAMODEL_WEBCONFIG,  *PCOSA_DATAMODEL_WEBCONFIG;
 
-#define  ACCESS_COSA_CONTEXT_WEBCONFIG_LINK_OBJECT(p)              \
+//#define  ACCESS_COSA_CONTEXT_WEBCONFIG_LINK_OBJECT(p)              \
          ACCESS_CONTAINER(p, COSA_CONTEXT_WEBCONFIG_LINK_OBJECT, Linkage)
 
 /**********************************
@@ -114,30 +112,5 @@ CosaWebConfigRemove
     (
         ANSC_HANDLE                 hThisObject
     );
-
-PCOSA_DML_CONFIGFILE_CONTAINER
-CosaDmlGetConfigFile(    
-        ANSC_HANDLE                 hThisObject
-    );
-
-PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY
-CosaDmlGetConfigFileEntry
-    (
-        ULONG InstanceNumber
-    );
-
-
-ANSC_STATUS
-CosaDmlSetConfigFileEntry
-    (
-	    PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY configFileEntry
-    );
-
-ANSC_STATUS
-CosaDmlRemoveConfigFileEntry
-    (
-        ULONG InstanceNumber
-    );
-
 
 void CosaDmlStoreValueIntoDb(char *ParamName, char *pString);

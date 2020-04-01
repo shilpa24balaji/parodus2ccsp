@@ -74,7 +74,7 @@
 int initConfigFileWithURL(char *Url, ULONG InstanceNumber);
 void CosaDmlRemoveValueFromDb(char *ParamName);
 void CosaDmlGetValueFromDb( char* ParamName, char* pString );
-void FillEntryInList(PCOSA_DATAMODEL_WEBCONFIG pWebConfig, PCOSA_DML_WEBCONFIG_CONFIGFILE_ENTRY configFileEntry);
+
 /**********************************************************************
 
     caller:     owner of the object
@@ -96,8 +96,6 @@ void FillEntryInList(PCOSA_DATAMODEL_WEBCONFIG pWebConfig, PCOSA_DML_WEBCONFIG_C
     return:     newly created nat object.
 
 **********************************************************************/
-
-bool FillDefaultConfigFileEntryToDB();
 
 ANSC_HANDLE
 CosaWebConfigCreate
@@ -130,24 +128,8 @@ CosaWebConfigCreate
 	
 	WebConfigLog("------ pMyObject -------\n");
 	WebConfigLog("pMyObject->RfcEnable: %d\n",pMyObject->RfcEnable);
-	WebConfigLog("pMyObject->PeriodicSyncCheckInterval: %d\n",pMyObject->PeriodicSyncCheckInterval);
 	WebConfigLog("pMyObject->ForceSync: %s\n",pMyObject->ForceSync);
-	if(pMyObject->pConfigFileContainer != NULL)
-	{
-		WebConfigLog("pMyObject->pConfigFileContainer->ConfigFileEntryCount: %d\n",pMyObject->pConfigFileContainer->ConfigFileEntryCount);
-		if(pMyObject->pConfigFileContainer->pConfigFileTable != NULL)
-		{
-			for(i=0; i<pMyObject->pConfigFileContainer->ConfigFileEntryCount; i++)
-			{
-				WebConfigLog("pMyObject->pConfigFileContainer->pConfigFileTable[%d].InstanceNumber = %d\n",i,pMyObject->pConfigFileContainer->pConfigFileTable[i].InstanceNumber);
-				WebConfigLog("pMyObject->pConfigFileContainer->pConfigFileTable[%d].URL = %s\n",i,pMyObject->pConfigFileContainer->pConfigFileTable[i].URL);
-				WebConfigLog("pMyObject->pConfigFileContainer->pConfigFileTable[%d].Version = %s\n",i,pMyObject->pConfigFileContainer->pConfigFileTable[i].Version);
-				WebConfigLog("pMyObject->pConfigFileContainer->pConfigFileTable[%d].ForceSyncCheck = %d\n",i,pMyObject->pConfigFileContainer->pConfigFileTable[i].ForceSyncCheck);
-				WebConfigLog("pMyObject->pConfigFileContainer->pConfigFileTable[%d].SyncCheckOK = %d\n",i,pMyObject->pConfigFileContainer->pConfigFileTable[i].SyncCheckOK);
-				WebConfigLog("pMyObject->pConfigFileContainer->pConfigFileTable[%d].RequestTimeStamp = %s\n",i,pMyObject->pConfigFileContainer->pConfigFileTable[i].RequestTimeStamp);
-			}
-		}
-	}
+	
 	WebConfigLog("------ pMyObject -------\n");
 	WebcfgDebug("-------- %s ----- Exit ------\n",__FUNCTION__);
     return  (ANSC_HANDLE)pMyObject;
@@ -188,7 +170,8 @@ CosaWebConfigInitialize
     WebcfgDebug("-------- %s ----- Enter ------\n",__FUNCTION__);
     pMyObject->MaxInstanceNumber        = 0;
     CHAR tmpbuf[ 128 ] = { 0 };
-#ifdef RDKB_BUILD
+    CHAR URL[ 256 ] = { 0 };
+/**#ifdef RDKB_BUILD
     WebcfgDebug("------- %s ---------\n",__FUNCTION__);
     // Initialize syscfg to make syscfg calls
     if (0 != syscfg_init())
@@ -197,7 +180,7 @@ CosaWebConfigInitialize
     	return ANSC_STATUS_FAILURE;
     }
     else
-#endif
+#endif**/
     CosaDmlGetValueFromDb("WebConfigRfcEnabled", tmpbuf);
     if( (tmpbuf[0] != '\0') && AnscEqualString(tmpbuf, "true", TRUE))
     {
@@ -210,13 +193,7 @@ CosaWebConfigInitialize
     WebcfgDebug("pMyObject->RfcEnable : %d\n",pMyObject->RfcEnable);
 	/*Removing RFC check for now as data re-load is not yet implemented*/
     //if(pMyObject->RfcEnable == true)
-    {
-        CosaDmlGetValueFromDb("PeriodicSyncCheckInterval", tmpbuf);
-        if(tmpbuf[0] != '\0')
-        {
-            pMyObject->PeriodicSyncCheckInterval = atoi(tmpbuf);
-        }
-        WebcfgDebug("pMyObject->PeriodicSyncCheckInterval:%d\n",pMyObject->PeriodicSyncCheckInterval);
+    //{
     
 	_ansc_memset(pMyObject->ForceSync, 0, 256);
 	AnscCopyString( pMyObject->ForceSync, "" );
@@ -226,37 +203,16 @@ CosaWebConfigInitialize
         WebConfigLog("pMyObject->ForceSync:%s\n",pMyObject->ForceSync);
 	WebConfigLog("pMyObject->ForceSyncTransID:%s\n",pMyObject->ForceSync);
 
-        AnscSListInitializeHeader( &pMyObject->ConfigFileList );
-        WebcfgDebug("B4 CosaDmlGetConfigFile\n");
-        pMyObject->pConfigFileContainer = CosaDmlGetConfigFile((ANSC_HANDLE)pMyObject);
-        WebcfgDebug("After CosaDmlGetConfigFile\n");
-        CosaDmlGetValueFromDb("WebConfig_NextInstanceNumber",tmpbuf);
-        if(tmpbuf[0] != '\0')
-        {
-            pMyObject->ulWebConfigNextInstanceNumber   = atoi(tmpbuf);
-        }
-        else
-        {
-            pMyObject->ulWebConfigNextInstanceNumber   = 1;
-        }
-        WebConfigLog("pMyObject->ulWebConfigNextInstanceNumber: %d\n",pMyObject->ulWebConfigNextInstanceNumber);
-	    WebcfgDebug("##### ConfigFile container data #####\n");
-	    WebcfgDebug("pMyObject->pConfigFileContainer->ConfigFileEntryCount: %d\n",pMyObject->pConfigFileContainer->ConfigFileEntryCount);
-	    int i = 0;
-	    if(pMyObject->pConfigFileContainer->pConfigFileTable != NULL)
-	    {
-		    for(i=0; i<pMyObject->pConfigFileContainer->ConfigFileEntryCount; i++)
-		    {
-			    WebcfgDebug("pMyObject->pConfigFileContainer->pConfigFileTable[%d].InstanceNumber = %d\n",i,pMyObject->pConfigFileContainer->pConfigFileTable[i].InstanceNumber);
-			    WebcfgDebug("pMyObject->pConfigFileContainer->pConfigFileTable[%d].URL = %s\n",i,pMyObject->pConfigFileContainer->pConfigFileTable[i].URL);
-			    WebcfgDebug("pMyObject->pConfigFileContainer->pConfigFileTable[%d].Version = %s\n",i,pMyObject->pConfigFileContainer->pConfigFileTable[i].Version);
-			    WebcfgDebug("pMyObject->pConfigFileContainer->pConfigFileTable[%d].ForceSyncCheck = %d\n",i,pMyObject->pConfigFileContainer->pConfigFileTable[i].ForceSyncCheck);
-			    WebcfgDebug("pMyObject->pConfigFileContainer->pConfigFileTable[%d].SyncCheckOK = %d\n",i,pMyObject->pConfigFileContainer->pConfigFileTable[i].SyncCheckOK);
-			    WebcfgDebug("pMyObject->pConfigFileContainer->pConfigFileTable[%d].RequestTimeStamp = %s\n",i,pMyObject->pConfigFileContainer->pConfigFileTable[i].RequestTimeStamp);
-		    }
-	    }
-	    WebcfgDebug("##### ConfigFile container data #####\n");
+	_ansc_memset(pMyObject->URL, 0, 256);
+	/*Get_Webconfig_URL(&URL);
+	if( (URL !=NULL) && strlen(URL)>0 )
+	{
+		WebConfigLog("URL from DB %s\n", URL);
+		AnscCopyString(pMyObject->URL, URL);
+		WebConfigLog("pMyObject->URL:%s\n", pMyObject->URL);
 	}
+
+	WebConfigLog("URL initialization done\n");*/
 /*	else
 	{
 	    WebConfigLog("RFC disabled. Hence not loading ConfigFile entries\n");
@@ -301,24 +257,13 @@ CosaWebConfigRemove
     ANSC_STATUS                     returnStatus = ANSC_STATUS_SUCCESS;
     PCOSA_DATAMODEL_WEBCONFIG            pMyObject    = (PCOSA_DATAMODEL_WEBCONFIG)hThisObject;
 	WebcfgDebug("-------- %s ----- Enter ------\n",__FUNCTION__);
-    if ( pMyObject->pConfigFileContainer)
-    {
-        /* Remove necessary resounce */
-        if ( pMyObject->pConfigFileContainer->pConfigFileTable)
-        {
-            AnscFreeMemory(pMyObject->pConfigFileContainer->pConfigFileTable );
-        }
-
-        AnscFreeMemory(pMyObject->pConfigFileContainer);
-        pMyObject->pConfigFileContainer = NULL;
-    }
-
+    
     /* Remove self */
     AnscFreeMemory((ANSC_HANDLE)pMyObject);
 	WebcfgDebug("-------- %s ----- EXIT ------\n",__FUNCTION__);
     return returnStatus;
 }
-
+/**
 PCOSA_DML_CONFIGFILE_CONTAINER
 CosaDmlGetConfigFile(    
         ANSC_HANDLE                 hThisObject
@@ -758,4 +703,4 @@ bool FillDefaultConfigFileEntryToDB()
 
 	WebcfgDebug("-------- %s ----- Exit ------\n",__FUNCTION__);
 	return true;
-}
+}**/
