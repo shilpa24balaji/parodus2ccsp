@@ -79,8 +79,6 @@ COSA_DML_CONFIGFILE_CONTAINER,  *PCOSA_DML_CONFIGFILE_CONTAINER;
     int                     PeriodicSyncCheckInterval;                      \
     char 		    ForceSync[256];					\
     char 		    ForceSyncTransID[256];					\
-    char*                    DBBlobData;                                         \
-    size_t                   DBBlobLength;                                        \
     SLIST_HEADER                ConfigFileList;                                        \
     PCOSA_DML_CONFIGFILE_CONTAINER    pConfigFileContainer;                                        \
 	ANSC_HANDLE                     hIrepFolderWebConfig;                                         \

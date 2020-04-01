@@ -199,7 +199,7 @@ X_RDK_WebConfig_SetParamStringValue
 		if( AnscEqualString(ParamName, "Data", TRUE))
 	    {
 			WebConfigLog("Data set is Not supported\n");
-			return 0;
+                        return TRUE;
 		}
 	WebConfigLog(" %s : EXIT \n", __FUNCTION__ );
 
@@ -239,19 +239,32 @@ X_RDK_WebConfig_GetParamStringValue
                 }
         }
         if( AnscEqualString(ParamName, "Data", TRUE))
-	    {
-                if (Get_Webconfig_Blob(pValue))
+	{
+                CcspTraceWarning(("[%s] at [%d]parameter '%s'\n",__FUNCTION__,__LINE__, ParamName));
+                uint8_t * blobData = NULL;
+                size_t blobSize = -1;
+
+                blobData = (uint8_t *)get_DB_BLOB_base64(&blobSize);
+
+                WebConfigLog("The BlobSize is %zu\n",blobSize);
+                WebConfigLog("The Blob fetched is %s\n",blobData);
+                if (blobData)
                 {
-					WebConfigLog("Blob Data fetched : pValue %s\n", pValue);
-					*pUlSize = AnscSizeOfString(pValue)+1;
-					WebConfigLog("*pUlSize %lu\n", *pUlSize);
-					return 1;
-                }
-                else
-                {
-			WebConfigLog("Failed to get Blob Data \n");
-			return 0;
-                }
+			 if(*pUlSize <= strlen(blobData))
+                         {
+			     *pUlSize = strlen(blobData) + 1;
+			     return 1;
+		         }
+		         /* collect value */
+		         AnscCopyString(pValue, (char*)blobData);
+                         WebConfigLog("The pValue is %s\n",pValue);
+		         if(blobData)
+		         {
+			     free(blobData);
+			     blobData = NULL;
+		         }
+	        }
+                return 0;
         }
 
 	WebConfigLog("------- %s ----- EXIT ----\n",__FUNCTION__);
