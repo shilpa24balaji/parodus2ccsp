@@ -30,6 +30,8 @@
 
 static char *paramRFCEnable = "eRT.com.cisco.spvtg.ccsp.webpa.Device.X_RDK_WebConfig.RfcEnable";
 
+static char *paramRFCEnable = "eRT.com.cisco.spvtg.ccsp.webpa.Device.X_RDK_WebConfig.RfcEnable";
+
 extern PCOSA_BACKEND_MANAGER_OBJECT g_pCosaBEManager;
 extern ANSC_HANDLE bus_handle;
 extern char        g_Subsystem[32];
@@ -91,24 +93,20 @@ BOOL CosaDmlGetRFCEnableFromDB(BOOL *pbValue)
 {
     char* strValue = NULL;
 
-    WebConfigLog("-------- %s ----- Enter-- ---\n",__FUNCTION__);
+    WebcfgDebug("-------- %s ----- Enter-- ---\n",__FUNCTION__);
 
     *pbValue = FALSE;
-    WebConfigLog("Fetch paramRFCEnable %s from PSM DB\n", paramRFCEnable);
     if (CCSP_SUCCESS == PSM_Get_Record_Value2(bus_handle,
                 g_Subsystem, paramRFCEnable, NULL, &strValue))
     {
-	WebConfigLog("strValue %s \n", strValue);
         if(((strcmp (strValue, "true") == 0)) || (strcmp (strValue, "TRUE") == 0))
 	{
             *pbValue = TRUE;
         }
-	WebConfigLog("strValue %s *pbValue %d\n", strValue, *pbValue);
         ((CCSP_MESSAGE_BUS_INFO *)bus_handle)->freefunc( strValue );
-	WebConfigLog("After strValue free \n");
         return TRUE;
     }
-    WebConfigLog("-------- %s ----- Exit-- ---\n",__FUNCTION__);
+    WebcfgDebug("-------- %s ----- Exit-- ---\n",__FUNCTION__);
     return FALSE;
 }
 

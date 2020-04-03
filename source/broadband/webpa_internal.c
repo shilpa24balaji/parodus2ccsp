@@ -250,21 +250,16 @@ static void *WALInit(void *status)
 		WebConfigLog("strValue %s \n", strValue);
 		if(strValue != NULL)
 		{
-			WebConfigLog("copying strValue to RfcEnable\n");
 			walStrncpy(RfcEnable, strValue, sizeof(RfcEnable));
-			WebConfigLog("After copy RfcEnable is %s\n", RfcEnable);
 			((CCSP_MESSAGE_BUS_INFO *)bus_handle)->freefunc( strValue );
-			WebConfigLog("After strValue free..\n");
 		}
 	}
 #endif
 	WebConfigLog("RfcEnable is %s\n", RfcEnable);
 	if(RfcEnable[0] != '\0' && strncmp(RfcEnable, "true", strlen("true")) == 0)
 	{
-	    WebConfigLog("WebConfig Rfc is enabled, starting WebConfigMultipartTask..\n");
-	    WebConfigLog("status: %lu\n", (unsigned long) status);
+	    WebConfigLog("WebConfig Rfc is enabled, starting WebConfigMultipartTask\n");
 	    initWebConfigMultipartTask((unsigned long) status);
-	    WebConfigLog("After WebConfigMultipartTask\n");
 	}
 	else
 	{
