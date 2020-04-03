@@ -23,10 +23,13 @@
 #include "cosa_webconfig_internal.h"
 #include "webconfig_log.h"
 #include "webconfig_internal.h"
+#include <webcfg_db.h>
 
 #define WEBCONFIG_PARAM_RFC_ENABLE          "Device.X_RDK_WebConfig.RfcEnable"
+#define WEBCONFIG_PARAM_URL                 "Device.X_RDK_WebConfig.URL"
 #define WEBCONFIG_PARAM_CONFIGFILE_ENTRIES  "Device.X_RDK_WebConfig.ConfigFileNumberOfEntries"
 #define WEBCONFIG_PARAM_PERIODIC_INTERVAL   "Device.X_RDK_WebConfig.PeriodicSyncCheckInterval"
+#define WEBCONFIG_PARAM_FORCE_SYNC   	    "Device.X_RDK_WebConfig.ForceSync"
 #define WEBCONFIG_TABLE_CONFIGFILE          "Device.X_RDK_WebConfig.ConfigFile."
 #define CONFIGFILE_PARAM_URL                "URL"
 #define CONFIGFILE_PARAM_VERSION            "Version"
@@ -34,7 +37,11 @@
 #define CONFIGFILE_PARAM_SYNC_CHECK_OK      "SyncCheckOK"
 #define CONFIGFILE_PARAM_REQUEST_TIME_STAMP     "RequestTimeStamp"
 
+static char *paramRFCEnable = "eRT.com.cisco.spvtg.ccsp.webpa.Device.X_RDK_WebConfig.RfcEnable";
+
 extern PCOSA_BACKEND_MANAGER_OBJECT g_pCosaBEManager;
+extern ANSC_HANDLE bus_handle;
+extern char        g_Subsystem[32];
 
 BOOL Get_RfcEnable()
 {
@@ -46,6 +53,8 @@ int setRfcEnable(BOOL bValue)
 {
 	PCOSA_DATAMODEL_WEBCONFIG            pMyObject           = (PCOSA_DATAMODEL_WEBCONFIG)g_pCosaBEManager->hWebConfig;
 	char buf[16] = {0};
+	int retPsmSet = CCSP_SUCCESS;
+
 	if(bValue == TRUE)
 	{
 		sprintf(buf, "%s", "true");
@@ -55,42 +64,152 @@ int setRfcEnable(BOOL bValue)
 			pthread_mutex_lock (get_global_periodicsync_mutex());
 			g_shutdown  = false;
 			pthread_mutex_unlock(get_global_periodicsync_mutex());
-			WebConfigLog("RfcEnable dynamic change from false to true. start WebConfigTask.\n");
-			initWebConfigTask(0);
+			WebConfigLog("RfcEnable dynamic change from false to true. start initWebConfigMultipartTask.\n");
+			initWebConfigMultipartTask();
 		}
 	}
 	else
 	{
 		sprintf(buf, "%s", "false");
 		WebConfigLog("Received RFC disable. updating g_shutdown\n");
-		/* sending signal to kill WebConfigTask thread*/
+		/* sending signal to kill initWebConfigMultipartTask thread*/
 		pthread_mutex_lock (get_global_periodicsync_mutex());
 		g_shutdown  = true;
 		pthread_cond_signal(get_global_periodicsync_condition());
 		pthread_mutex_unlock(get_global_periodicsync_mutex());
 	}  
 #ifdef RDKB_BUILD
-	if(syscfg_set(NULL, "WebConfigRfcEnabled", buf) != 0)
-	{
-		WebConfigLog("syscfg_set failed for RfcEnable\n");
-		return 1;
-	}
-	else
-	{
-		if (syscfg_commit() != 0)
-		{
-			WebConfigLog("syscfg_commit failed\n");
-			return 1;
-		}
-		else
-		{
-			pMyObject->RfcEnable = bValue;
-			return 0;
-		}
-	}
+	retPsmSet = PSM_Set_Record_Value2(bus_handle,g_Subsystem, paramRFCEnable, ccsp_string, buf);
+        if (retPsmSet != CCSP_SUCCESS)
+        {
+                WebConfigLog("psm_set failed ret %d for parameter %s and value %s\n", retPsmSet, paramRFCEnable, buf);
+                return 1;
+        }
+        else
+        {
+                WebConfigLog("psm_set success ret %d for parameter %s and value %s\n", retPsmSet, paramRFCEnable, buf);
+		pMyObject->RfcEnable = bValue;
+		WebConfigLog("pMyObject->RfcEnable is %d\n", pMyObject->RfcEnable);
+		return 0;
+        }
 #endif
 	return 0;
 }
+
+BOOL CosaDmlGetRFCEnableFromDB(BOOL *pbValue)
+{
+    char* strValue = NULL;
+
+    WebConfigLog("-------- %s ----- Enter-- ---\n",__FUNCTION__);
+
+    *pbValue = FALSE;
+    WebConfigLog("Fetch paramRFCEnable %s from PSM DB\n", paramRFCEnable);
+    if (CCSP_SUCCESS == PSM_Get_Record_Value2(bus_handle,
+                g_Subsystem, paramRFCEnable, NULL, &strValue))
+    {
+	WebConfigLog("strValue %s \n", strValue);
+        if(((strcmp (strValue, "true") == 0)) || (strcmp (strValue, "TRUE") == 0))
+	{
+            *pbValue = TRUE;
+        }
+	WebConfigLog("strValue %s *pbValue %d\n", strValue, *pbValue);
+        ((CCSP_MESSAGE_BUS_INFO *)bus_handle)->freefunc( strValue );
+	WebConfigLog("After strValue free \n");
+        return TRUE;
+    }
+    WebConfigLog("-------- %s ----- Exit-- ---\n",__FUNCTION__);
+    return FALSE;
+}
+
+int Get_Webconfig_URL( char *pString)
+{
+    PCOSA_DATAMODEL_WEBCONFIG            pMyObject           = (PCOSA_DATAMODEL_WEBCONFIG)g_pCosaBEManager->hWebConfig;
+    WebConfigLog("-------- %s ----- Enter-- ---\n",__FUNCTION__);
+
+        if((pMyObject != NULL) && (pMyObject->URL != NULL) && (strlen(pMyObject->URL)>0))
+        {
+        		WebConfigLog("pMyObject->URL %s\n", pMyObject->URL);
+                WebConfigLog("%s ----- updating pString ------\n",__FUNCTION__);
+		
+		AnscCopyString( pString,pMyObject->URL );
+		WebConfigLog("pString %s\n",pString);
+        }
+        else
+        {
+		char *tempDBUrl = NULL;
+                int   retPsmGet    = CCSP_SUCCESS;
+		WebConfigLog("B4 PSM_Get_Record_Value2\n");
+                retPsmGet = PSM_Get_Record_Value2(bus_handle,g_Subsystem, WEBCONFIG_PARAM_URL, NULL, &tempDBUrl);
+		WebConfigLog("After PSM_Get_Record_Value2\n");
+		WebConfigLog("tempDBUrl is %s\n", tempDBUrl);
+                if (retPsmGet == CCSP_SUCCESS)
+                {
+			WebConfigLog("retPsmGet success\n");
+			AnscCopyString( pString,tempDBUrl);
+                        WebConfigLog("pString %s\n",pString);
+                }
+                else
+                {
+                        WebConfigLog("psm_get failed ret %d for parameter %s\n", retPsmGet, WEBCONFIG_PARAM_URL);
+                        return 0;
+                }
+        }
+
+        WebConfigLog("-------- %s ----- Exit ------\n",__FUNCTION__);
+        return 1;
+}
+
+int Set_Webconfig_URL( char *pString)
+{
+    PCOSA_DATAMODEL_WEBCONFIG            pMyObject           = (PCOSA_DATAMODEL_WEBCONFIG)g_pCosaBEManager->hWebConfig;
+    WebConfigLog("-------- %s ----- Enter ------\n",__FUNCTION__);
+    int retPsmSet = CCSP_SUCCESS;
+
+        memset( pMyObject->URL, 0, sizeof( pMyObject->URL ));
+        AnscCopyString( pMyObject->URL, pString );
+
+
+        retPsmSet = PSM_Set_Record_Value2(bus_handle,g_Subsystem, WEBCONFIG_PARAM_URL, ccsp_string, pString);
+        if (retPsmSet != CCSP_SUCCESS)
+        {
+                WebConfigLog("psm_set failed ret %d for parameter %s and value %s\n", retPsmSet, WEBCONFIG_PARAM_URL, pString);
+                return 0;
+        }
+        else
+        {
+                WebConfigLog("psm_set success ret %d for parameter %s and value %s\n", retPsmSet, WEBCONFIG_PARAM_URL, pString);
+        }
+
+        WebConfigLog("-------- %s ----- Exit ------\n",__FUNCTION__);
+        return 1;
+}
+
+int Get_Webconfig_Blob( char *pString)
+{
+    PCOSA_DATAMODEL_WEBCONFIG            pMyObject           = (PCOSA_DATAMODEL_WEBCONFIG)g_pCosaBEManager->hWebConfig;
+    WebConfigLog("-------- %s ----- Enter-- ---\n",__FUNCTION__);
+
+	//WebConfigLog("pMyObject->DBBlobData %s,*pString=%s\n", pMyObject->DBBlobData,*pString);
+
+        pMyObject->DBBlobData = NULL;
+        pMyObject->DBBlobData = get_DB_BLOB_base64(&pMyObject->DBBlobLength);
+        writeBlobToFile(WEBCFG_BLOB_PATH, pMyObject->DBBlobData);
+        WebConfigLog("pMyObject->DBBlobLength %zu\n",pMyObject->DBBlobLength);
+        readBlobFromFile(WEBCFG_BLOB_PATH);
+	pString=(char*) malloc(sizeof(char *)*(pMyObject->DBBlobLength));
+        AnscCopyString( pString,pMyObject->DBBlobData );
+        if (pString != NULL)
+        {
+            WebConfigLog("pMyObject->DBBlobLength %zu, pString %s, pMyObject->DBBlobData=%s\n",pMyObject->DBBlobLength,pString,pMyObject->DBBlobData);
+            return 1;
+        }
+        else
+        {
+            WebConfigLog("Failed to get b64 encoded data\n");
+            return 0;
+        }
+}
+
 
 int getConfigNumberOfEntries()
 {
@@ -128,7 +247,7 @@ int setPeriodicSyncCheckInterval(int iValue)
 		else
 		{
 			pMyObject->PeriodicSyncCheckInterval = iValue;
-			/* sending signal to WebConfigTask to update the sync time interval*/
+			/* sending signal to initWebConfigMultipartTask to update the sync time interval*/
 			pthread_mutex_lock (get_global_periodicsync_mutex());
 			pthread_cond_signal(get_global_periodicsync_condition());
 			pthread_mutex_unlock(get_global_periodicsync_mutex());
@@ -136,6 +255,70 @@ int setPeriodicSyncCheckInterval(int iValue)
 	}
 #endif
 	return 0;
+}
+
+int setForceSync(char* pString, char *transactionId,int *pStatus)
+{
+	PCOSA_DATAMODEL_WEBCONFIG            pMyObject           = (PCOSA_DATAMODEL_WEBCONFIG)g_pCosaBEManager->hWebConfig;
+	WebConfigLog("setForceSync\n");
+	memset( pMyObject->ForceSync, 0, sizeof( pMyObject->ForceSync ));
+	AnscCopyString( pMyObject->ForceSync, pString );
+	WebConfigLog("pMyObject->ForceSync is %s\n", pMyObject->ForceSync);
+
+	if((pMyObject->ForceSync !=NULL) && (strlen(pMyObject->ForceSync)>0))
+	{
+		if(strlen(pMyObject->ForceSyncTransID)>0)
+		{
+			WebConfigLog("Force sync is already in progress, Ignoring this request.\n");
+			*pStatus = 1;
+			return 0;
+		}
+		else
+		{
+			/* sending signal to initWebConfigMultipartTask to update the sync time interval*/
+			pthread_mutex_lock (get_global_periodicsync_mutex());
+
+			//Update ForceSyncTransID to access webpa transactionId in webConfig sync.
+			if(transactionId !=NULL && (strlen(transactionId)>0))
+			{
+				AnscCopyString(pMyObject->ForceSyncTransID, transactionId);
+				WebConfigLog("pMyObject->ForceSyncTransID is %s\n", pMyObject->ForceSyncTransID);
+			}
+			WebConfigLog("Trigger force sync\n");
+			pthread_cond_signal(get_global_periodicsync_condition());
+			pthread_mutex_unlock(get_global_periodicsync_mutex());
+		}
+	}
+	else
+	{
+		WebConfigLog("Force sync param set with empty value\n");
+		memset(pMyObject->ForceSyncTransID,0,sizeof(pMyObject->ForceSyncTransID));
+	}
+	WebConfigLog("setForceSync returns success 1\n");
+	return 1;
+}
+
+int getForceSync(char** pString, char **transactionId )
+{
+	PCOSA_DATAMODEL_WEBCONFIG pMyObject = (PCOSA_DATAMODEL_WEBCONFIG)g_pCosaBEManager->hWebConfig;
+	WebConfigLog("-------- %s ----- Enter ------\n",__FUNCTION__);
+
+	if((pMyObject->ForceSync != NULL) && strlen(pMyObject->ForceSync)>0)
+	{
+		WebConfigLog("%s ----- updating pString ------\n",__FUNCTION__);
+		*pString = strdup(pMyObject->ForceSync);
+		WebConfigLog("%s ----- updating transactionId ------\n",__FUNCTION__);
+		*transactionId = strdup(pMyObject->ForceSyncTransID);
+	}
+	else
+	{
+		*pString = NULL;
+		*transactionId = NULL;
+		return 0;
+	}
+	WebConfigLog("*transactionId is %s\n",*transactionId);
+	WebConfigLog("-------- %s ----- Exit ------\n",__FUNCTION__);
+	return 1;
 }
 
 int getInstanceNumberAtIndex(int index)
@@ -718,7 +901,7 @@ int getWebConfigParameterValues(char **parameterNames, int paramCount, int *val_
     WebcfgDebug("*********** %s ***************\n",__FUNCTION__);
 
     RFC_ENABLE = Get_RfcEnable();
-    WebcfgDebug("paramCount = %d\n",paramCount);
+    WebConfigLog("paramCount = %d\n",paramCount);
     if(RFC_ENABLE)
     {
         count = getConfigNumberOfEntries();
@@ -962,6 +1145,36 @@ int getWebConfigParameterValues(char **parameterNames, int paramCount, int *val_
                                 paramVal[k]->type = ccsp_int;
                                 k++;
                             }
+			    else if((strcmp(parameterNames[i], WEBCONFIG_PARAM_FORCE_SYNC) == 0) && (RFC_ENABLE == true))
+                            {
+				WebConfigLog("Force Sync GET is not supported\n");
+                                paramVal[k]->parameterName = strndup(WEBCONFIG_PARAM_FORCE_SYNC, MAX_PARAMETERNAME_LEN);
+				paramVal[k]->parameterValue = strndup("",MAX_PARAMETERVALUE_LEN);
+                                paramVal[k]->type = ccsp_string;
+                                k++;
+				WebConfigLog("Webpa force sync done\n");
+                            }
+			    else if((strcmp(parameterNames[i], WEBCONFIG_PARAM_URL) == 0) && (RFC_ENABLE == true))
+                            {
+				char valuestr[256] = {0};
+				WebConfigLog("B4 Get_Webconfig_URL\n");
+				Get_Webconfig_URL(valuestr);
+				if( (valuestr != NULL) && strlen(valuestr) >0 )
+				{
+					WebConfigLog("Webpa get : URL fetched %s\n", valuestr);
+		                        paramVal[k]->parameterName = strndup(WEBCONFIG_PARAM_URL, MAX_PARAMETERNAME_LEN);
+					paramVal[k]->parameterValue = strndup(valuestr,MAX_PARAMETERVALUE_LEN);
+		                        paramVal[k]->type = ccsp_string;
+		                        k++;
+					WebConfigLog("Webpa get : URL done\n");
+				}
+				else
+				{
+					WebConfigLog("Webpa get : URL not found\n");
+					WAL_FREE(paramVal[k]);
+					matchFound = 0;
+				}
+                            }
                             else
                             {
                                 WAL_FREE(paramVal[k]);
@@ -972,8 +1185,10 @@ int getWebConfigParameterValues(char **parameterNames, int paramCount, int *val_
                         {
                             if(RFC_ENABLE)
                             {
-                                localCount = localCount+2+(count*5);
+				WebConfigLog("Updating localCount %d in wildcard GET case\n", localCount);
+                                localCount = localCount+4+(count*5);
                             }
+				WebConfigLog("Updated localCount %d\n", localCount);
                             paramVal = (parameterValStruct_t **) realloc(paramVal, sizeof(parameterValStruct_t *)*localCount);
                             paramVal[k] = (parameterValStruct_t *) malloc(sizeof(parameterValStruct_t));
                             memset(paramVal[k], 0, sizeof(parameterValStruct_t));
@@ -1010,11 +1225,42 @@ int getWebConfigParameterValues(char **parameterNames, int paramCount, int *val_
                                 snprintf(paramVal[k]->parameterValue,MAX_PARAMETERVALUE_LEN,"%d",interval);
                                 paramVal[k]->type = ccsp_int;
                                 k++;
+
+				WebConfigLog("Webpa wildcard get for force sync\n");
+				paramVal[k] = (parameterValStruct_t *) malloc(sizeof(parameterValStruct_t));
+                                memset(paramVal[k], 0, sizeof(parameterValStruct_t));
+                                paramVal[k]->parameterName = strndup(WEBCONFIG_PARAM_FORCE_SYNC, MAX_PARAMETERNAME_LEN);
+				paramVal[k]->parameterValue = strndup("",MAX_PARAMETERVALUE_LEN);
+                                paramVal[k]->type = ccsp_string;
+                                k++;
+				WebConfigLog("After Webpa wildcard get for force sync\n");
+
+				WebConfigLog("Webpa wildcard get for URL\n");
+				paramVal[k] = (parameterValStruct_t *) malloc(sizeof(parameterValStruct_t));
+                                memset(paramVal[k], 0, sizeof(parameterValStruct_t));
+                                paramVal[k]->parameterName = strndup(WEBCONFIG_PARAM_URL, MAX_PARAMETERNAME_LEN);
+				char webcfg_url[256] = {0};
+				WebConfigLog("Wildcard get : B4 Get_Webconfig_URL\n");
+				Get_Webconfig_URL(webcfg_url);
+				if( (webcfg_url !=NULL) && strlen(webcfg_url)>0 )
+				{
+					WebConfigLog("webcfg_url fetched %s\n", webcfg_url);
+					paramVal[k]->parameterValue = strndup(webcfg_url,MAX_PARAMETERVALUE_LEN);
+					WebConfigLog("Wildcard get : paramVal[k]->parameterValue:%s\n", paramVal[k]->parameterValue);
+				}
+				else
+				{
+					paramVal[k]->parameterValue = strndup("",MAX_PARAMETERVALUE_LEN);
+				}
+                                paramVal[k]->type = ccsp_string;
+                                k++;
+				WebConfigLog("After Webpa wildcard get for URL\n");
+
                                 int n = 0, index = 0;
                                 for(n = 0; n<count; n++)
                                 {
                                     index = getInstanceNumberAtIndex(n);
-                                    WebcfgDebug("InstNum: %d\n",index);
+                                    WebConfigLog("InstNum: %d\n",index);
                                     if(index != 0)
                                     {
                                         WebcfgDebug("B4 updateParamValStructWIthConfigFileDataAtIndex\n");
@@ -1059,11 +1305,11 @@ int getWebConfigParameterValues(char **parameterNames, int paramCount, int *val_
     *val = paramVal;
     for(i=0; i<k; i++)
     {
-        WebcfgDebug("Final-> %s %s %d\n",(*val)[i]->parameterName, (*val)[i]->parameterValue, (*val)[i]->type);
+        WebConfigLog("Final-> %s %s %d\n",(*val)[i]->parameterName, (*val)[i]->parameterValue, (*val)[i]->type);
     }
     *val_size = k;
-    WebcfgDebug("Final count is %d\n",*val_size);
-    WebcfgDebug("*********** %s ***************\n",__FUNCTION__);
+    WebConfigLog("Final count is %d\n",*val_size);
+    WebConfigLog("*********** %s ***************\n",__FUNCTION__);
     return CCSP_SUCCESS;
 }
 
@@ -1073,12 +1319,13 @@ int setWebConfigParameterValues(parameterValStruct_t *val, int paramCount, char 
 	char *subStr = NULL;
 	BOOL RFC_ENABLE;
 	int session_status = 0;
-	WebcfgDebug("*********** %s ***************\n",__FUNCTION__);
+	int ret = 0;
+	WebConfigLog("*********** %s ***************\n",__FUNCTION__);
 
 	char *webConfigObject = "Device.X_RDK_WebConfig.";
 	RFC_ENABLE = Get_RfcEnable();
 
-	WebcfgDebug("paramCount = %d\n",paramCount);
+	WebConfigLog("paramCount = %d\n",paramCount);
 	for(i=0; i<paramCount; i++)
 	{
 		if(strstr(val[i].parameterName, webConfigObject) != NULL)
@@ -1105,6 +1352,50 @@ int setWebConfigParameterValues(parameterValStruct_t *val, int paramCount, char 
 				else
 				{
 					setPeriodicSyncCheckInterval(0);
+				}
+			}
+			else if((strcmp(val[i].parameterName, WEBCONFIG_PARAM_FORCE_SYNC) == 0) && (RFC_ENABLE == true))
+			{
+				WebConfigLog("Processing Force Sync param\n");
+				if((val[i].parameterValue !=NULL) && (strlen(val[i].parameterValue)>0))
+				{
+					WebConfigLog("setWebConfigParameterValues setForceSync\n");
+					ret = setForceSync(val[i].parameterValue, transactionId, &session_status);
+					WebConfigLog("After setForceSync ret %d\n", ret);
+				}
+				else //pass empty transaction id when Force sync is with empty doc
+				{
+					WebConfigLog("setWebConfigParameterValues empty setForceSync\n");
+					ret = setForceSync(val[i].parameterValue, "", 0);
+				}
+				if(session_status)
+				{
+					return CCSP_CR_ERR_SESSION_IN_PROGRESS;
+				}
+				if(!ret)
+				{
+					WebConfigLog("setForceSync failed\n");
+					return CCSP_FAILURE;
+				}
+			}
+			else if((strcmp(val[i].parameterName, WEBCONFIG_PARAM_URL) == 0) && (RFC_ENABLE == true))
+			{
+				WebConfigLog("Processing Webcfg URL param\n");
+				if(isValidUrl(val[i].parameterValue) == TRUE)
+				{
+					WebConfigLog("setWebConfigParameterValues Set_Webconfig_URL\n");
+					ret = Set_Webconfig_URL(val[i].parameterValue);
+					WebConfigLog("After Set_Webconfig_UR ret %d\n", ret);
+					if(ret != 1)
+					{
+						WebConfigLog("Set_Webconfig_URL failed\n");
+						return CCSP_FAILURE;
+					}
+				}
+				else
+				{
+					WebConfigLog("Webcfg URL validation failed\n");
+					return CCSP_FAILURE;
 				}
 			}
 			else if((strstr(val[i].parameterName, WEBCONFIG_TABLE_CONFIGFILE) != NULL) && (RFC_ENABLE == true))
@@ -1171,6 +1462,6 @@ int setWebConfigParameterValues(parameterValStruct_t *val, int paramCount, char 
 			return CCSP_ERR_NOT_WRITABLE;
 		}
 	}
-	WebcfgDebug("*********** %s ***************\n",__FUNCTION__);
+	WebConfigLog("*********** %s ***************\n",__FUNCTION__);
 	return CCSP_SUCCESS;
 }
