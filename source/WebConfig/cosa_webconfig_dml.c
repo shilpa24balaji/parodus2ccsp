@@ -156,6 +156,121 @@ X_RDK_WebConfig_SetParamIntValue
 	/* CcspTraceWarning(("Unsupported parameter '%s'\n", ParamName)); */
 	return FALSE;
 }
+
+BOOL
+X_RDK_WebConfig_SetParamStringValue
+    (
+        ANSC_HANDLE                 hInsContext,
+        char*                       ParamName,
+        char*                       strValue
+    )
+{
+	WebConfigLog(" %s : ENTER \n", __FUNCTION__ );
+	RFC_ENABLE=Get_RfcEnable();
+	if(!RFC_ENABLE)
+	{
+		WebConfigLog("%s RfcEnable is disabled so, %s SET failed\n",__FUNCTION__,ParamName);
+		return FALSE;
+	}
+	if( AnscEqualString(ParamName, "ForceSync", TRUE))
+	{
+		/* save update to backup */
+		if(setForceSync(strValue, "", 0) == 1)
+		{
+			return TRUE;
+		}
+		else
+		{
+			WebConfigLog("setForceSync failed\n");
+		}
+	}
+
+        if( AnscEqualString(ParamName, "URL", TRUE))
+        {
+                if(Set_Webconfig_URL(strValue))
+                {
+                        return TRUE;
+                }
+                else
+                {
+                        WebConfigLog("Set_Webconfig_URL failed\n");
+                }
+        }
+		if( AnscEqualString(ParamName, "Data", TRUE))
+	    {
+			WebConfigLog("Data set is Not supported\n");
+                        return TRUE;
+		}
+	WebConfigLog(" %s : EXIT \n", __FUNCTION__ );
+
+	return FALSE;
+}
+
+ULONG
+X_RDK_WebConfig_GetParamStringValue
+    (
+        ANSC_HANDLE                 hInsContext,
+        char*                       ParamName,
+        char*                       pValue,
+        ULONG*                      pUlSize
+    )
+{
+	WebConfigLog("------- %s ----- ENTER ----\n",__FUNCTION__);
+	RFC_ENABLE=Get_RfcEnable();
+	if(!RFC_ENABLE)
+	{
+		WebConfigLog("------- %s ----- RfcEnable is disabled so, %s Get from DB failed\n",__FUNCTION__,ParamName);
+		return 0;
+	}
+	/* check the parameter name and return the corresponding value */
+	if( AnscEqualString(ParamName, "ForceSync", TRUE))
+	{
+		WebConfigLog("ForceSync Get Not supported\n");
+		return 0;
+	}
+        if( AnscEqualString(ParamName, "URL", TRUE))
+        {
+                if(Get_Webconfig_URL(pValue))
+                {
+
+			
+			WebConfigLog("URL fetched : pValue %s\n", pValue);
+				return 0;
+                }
+        }
+        if( AnscEqualString(ParamName, "Data", TRUE))
+	{
+                CcspTraceWarning(("[%s] at [%d]parameter '%s'\n",__FUNCTION__,__LINE__, ParamName));
+                uint8_t * blobData = NULL;
+                size_t blobSize = -1;
+
+                blobData = (uint8_t *)get_DB_BLOB_base64(&blobSize);
+
+                WebConfigLog("The BlobSize is %zu\n",blobSize);
+                WebConfigLog("The Blob fetched is %s\n",blobData);
+                if (blobData)
+                {
+			 if(*pUlSize <= strlen(blobData))
+                         {
+			     *pUlSize = strlen(blobData) + 1;
+			     return 1;
+		         }
+		         /* collect value */
+		         AnscCopyString(pValue, (char*)blobData);
+                         WebConfigLog("The pValue is %s\n",pValue);
+		         if(blobData)
+		         {
+			     free(blobData);
+			     blobData = NULL;
+		         }
+	        }
+                return 0;
+        }
+
+	WebConfigLog("------- %s ----- EXIT ----\n",__FUNCTION__);
+ 	CcspTraceWarning(("Unsupported parameter '%s'\n", ParamName));
+	return -1;
+}
 /***********************************************************************
 
  APIs for Object:

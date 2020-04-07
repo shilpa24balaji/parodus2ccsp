@@ -131,6 +131,7 @@ CosaWebConfigCreate
 	WebConfigLog("------ pMyObject -------\n");
 	WebConfigLog("pMyObject->RfcEnable: %d\n",pMyObject->RfcEnable);
 	WebConfigLog("pMyObject->PeriodicSyncCheckInterval: %d\n",pMyObject->PeriodicSyncCheckInterval);
+	WebConfigLog("pMyObject->ForceSync: %s\n",pMyObject->ForceSync);
 	if(pMyObject->pConfigFileContainer != NULL)
 	{
 		WebConfigLog("pMyObject->pConfigFileContainer->ConfigFileEntryCount: %d\n",pMyObject->pConfigFileContainer->ConfigFileEntryCount);
@@ -187,6 +188,7 @@ CosaWebConfigInitialize
     WebcfgDebug("-------- %s ----- Enter ------\n",__FUNCTION__);
     pMyObject->MaxInstanceNumber        = 0;
     CHAR tmpbuf[ 128 ] = { 0 };
+    char URL[256] = { 0 };
 #ifdef RDKB_BUILD
     WebcfgDebug("------- %s ---------\n",__FUNCTION__);
     // Initialize syscfg to make syscfg calls
@@ -217,6 +219,23 @@ CosaWebConfigInitialize
         }
         WebcfgDebug("pMyObject->PeriodicSyncCheckInterval:%d\n",pMyObject->PeriodicSyncCheckInterval);
     
+	_ansc_memset(pMyObject->ForceSync, 0, 256);
+	AnscCopyString( pMyObject->ForceSync, "" );
+
+	_ansc_memset(pMyObject->ForceSyncTransID, 0, 256);
+	AnscCopyString( pMyObject->ForceSyncTransID, "" );
+        WebConfigLog("pMyObject->ForceSync:%s\n",pMyObject->ForceSync);
+	WebConfigLog("pMyObject->ForceSyncTransID:%s\n",pMyObject->ForceSync);
+
+	_ansc_memset(pMyObject->URL, 0, 256);
+	Get_Webconfig_URL(URL);
+	if( (URL !=NULL) && strlen(URL)>0 )
+	{
+		WebConfigLog("URL from DB %s\n", URL);
+		AnscCopyString(pMyObject->URL, URL);
+		WebConfigLog("pMyObject->URL:%s\n", pMyObject->URL);
+	}
+	WebConfigLog("URL initialization done\n");
         AnscSListInitializeHeader( &pMyObject->ConfigFileList );
         WebcfgDebug("B4 CosaDmlGetConfigFile\n");
         pMyObject->pConfigFileContainer = CosaDmlGetConfigFile((ANSC_HANDLE)pMyObject);

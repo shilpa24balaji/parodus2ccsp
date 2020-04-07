@@ -76,6 +76,7 @@
 
 BOOL Get_RfcEnable();
 int setRfcEnable(BOOL bValue);
+int Get_Webconfig_Blob( char *pString);
 int getConfigNumberOfEntries();
 int Get_PeriodicSyncCheckInterval();
 int setPeriodicSyncCheckInterval(int iValue);
