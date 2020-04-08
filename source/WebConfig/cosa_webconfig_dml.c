@@ -240,13 +240,13 @@ X_RDK_WebConfig_GetParamStringValue
         }
         if( AnscEqualString(ParamName, "Data", TRUE))
 	{
-                CcspTraceWarning(("[%s] at [%d]parameter '%s'\n",__FUNCTION__,__LINE__, ParamName));
-                uint8_t * blobData = NULL;
-                size_t blobSize = -1;
+                WebConfigLog(("[%s] at [%d]parameter '%s'\n",__FUNCTION__,__LINE__, ParamName));
+                char * blobData = NULL;
+                //size_t blobSize = -1;
 
-                blobData = (uint8_t *)get_DB_BLOB_base64(&blobSize);
+                blobData = get_DB_BLOB_base64();
 
-                WebConfigLog("The BlobSize is %zu\n",blobSize);
+                WebConfigLog("The BlobSize is %zu\n",strlen(blobData));
                 WebConfigLog("The Blob fetched is %s\n",blobData);
                 if (blobData)
                 {
@@ -256,7 +256,7 @@ X_RDK_WebConfig_GetParamStringValue
 			     return 1;
 		         }
 		         /* collect value */
-		         AnscCopyString(pValue, (char*)blobData);
+		         AnscCopyString(pValue, blobData);
                          WebConfigLog("The pValue is %s\n",pValue);
 		         if(blobData)
 		         {
@@ -268,7 +268,7 @@ X_RDK_WebConfig_GetParamStringValue
         }
 
 	WebConfigLog("------- %s ----- EXIT ----\n",__FUNCTION__);
- 	CcspTraceWarning(("Unsupported parameter '%s'\n", ParamName));
+ 	WebConfigLog(("Unsupported parameter '%s'\n", ParamName));
 	return -1;
 }
 /***********************************************************************
